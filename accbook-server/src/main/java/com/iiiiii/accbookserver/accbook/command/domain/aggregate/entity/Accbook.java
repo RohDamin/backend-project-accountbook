@@ -6,8 +6,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
+@Builder(toBuilder = true)
 @Table(name = "accbook")
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Getter
 @Setter

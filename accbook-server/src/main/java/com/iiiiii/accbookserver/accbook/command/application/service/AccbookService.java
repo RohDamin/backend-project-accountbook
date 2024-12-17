@@ -51,7 +51,6 @@ public class AccbookService {
     public Accbook registAccbook(RequestRegistAccbookDTO newAccbook) {
 
         Integer storeCode = null;
-        Accbook accbook = new Accbook();
 
         // 1.'방문한 가게' 정보가 입력된 경우
         if (newAccbook.getRegistStoreDTO() != null) {
@@ -62,7 +61,7 @@ public class AccbookService {
 
             // '방문한 가게'가 가게DB에 존재하지 않는 경우 -> Store DB에 등록 후 storeCode 저장
             if (storeCode == null) {
-                storeCode = registNotExistStore(newAccbook, accbook);
+                storeCode = registNotExistStore(newAccbook);
             }
         }
 
@@ -71,16 +70,18 @@ public class AccbookService {
         changeAsset(financeType, newAccbook.getAssetCode(), newAccbook.getAmount(), newAccbook.getInAssetCode());
 
         // 3. 가계부 DB에 저장
-        accbook.setStoreCode(storeCode);
-        accbook.setCreatedAt(newAccbook.getCreatedAt());
-        accbook.setTitle(newAccbook.getTitle());
-        accbook.setAmount(newAccbook.getAmount());
-        accbook.setIsRegular(newAccbook.getIsRegular());
-        accbook.setMemberCode(newAccbook.getMemberCode());
-        accbook.setAccCategoryCode(newAccbook.getAccCategoryCode());
-        accbook.setAssetCode(newAccbook.getAssetCode());
-        accbook.setFinanceType(newAccbook.getFinanceType());
-        accbook.setInAssetCode(newAccbook.getInAssetCode());
+        Accbook accbook = Accbook.builder()
+                .storeCode(storeCode)
+                .createdAt(newAccbook.getCreatedAt())
+                .title(newAccbook.getTitle())
+                .amount(newAccbook.getAmount())
+                .isRegular(newAccbook.getIsRegular())
+                .memberCode(newAccbook.getMemberCode())
+                .accCategoryCode(newAccbook.getAccCategoryCode())
+                .assetCode(newAccbook.getAssetCode())
+                .financeType(newAccbook.getFinanceType())
+                .inAssetCode(newAccbook.getInAssetCode())
+                .build();
 
         accbookRepository.save(accbook);
         return accbook;
@@ -114,7 +115,7 @@ public class AccbookService {
 
             // '방문한 가게'가 가게DB에 존재하지 않는 경우, Store DB에 등록 후 storeCode 저장
             if (storeCode == null) {
-                storeCode = registNotExistStore(modifyAccbook, accbook);
+                storeCode = registNotExistStore(modifyAccbook);
                 accbook.setStoreCode(storeCode);
             }
         }
@@ -153,7 +154,7 @@ public class AccbookService {
 
     /* 고정지출 자동 기입 메서드 */
     @Transactional
-    @Scheduled(cron = "0 6 12 * * ?") // 매일 자정에 실행
+    @Scheduled(cron = "0 0 0 * * ?") // 매일 자정에 실행
     public void registRegularExpense() {
         // 고정지출 서비스로부터 모든 고정지출 리스트 조회
         List<ResponseRegExpVO> allResponseRegExpVO = regularExpenseServiceClient.findAllRegularExpenses();
@@ -167,24 +168,23 @@ public class AccbookService {
 
         // 필터링한 고정지출을 Accbook 엔티티로 변환
         List<Accbook> accbookList = todayRegularExpenseDTO.stream()
-                .map(expense -> {
-                    Accbook accbook = new Accbook();
-                    accbook.setCreatedAt(LocalDate.now().toString());
-                    accbook.setTitle(expense.getName());
-                    accbook.setAmount((long) expense.getAmount());
-                    accbook.setIsRegular(YesOrNo.Y);
-                    accbook.setMemberCode(expense.getMemberCode());
-                    accbook.setAccCategoryCode(expense.getAccCategoryCode());
-                    accbook.setStoreCode(null);
-                    accbook.setAssetCode(expense.getAssetCode());
-                    return accbook;
-                }).collect(Collectors.toList());
+                .map(expense -> Accbook.builder()
+                        .createdAt(LocalDate.now().toString())
+                        .title(expense.getName())
+                        .amount((long) expense.getAmount())
+                        .isRegular(YesOrNo.Y)
+                        .memberCode(expense.getMemberCode())
+                        .accCategoryCode(expense.getAccCategoryCode())
+                        .storeCode(null)
+                        .assetCode(expense.getAssetCode())
+                        .build())
+                .collect(Collectors.toList());
 
         // 가계부DB에 저장
         accbookRepository.saveAll(accbookList);
     }
 
-    private Integer registNotExistStore(RequestRegistAccbookDTO newAccbook, Accbook accbook) {
+    private Integer registNotExistStore(RequestRegistAccbookDTO newAccbook) {
 
         // 가게DB에 새 가게 등록
         ResponseStoreCodeVO responseStoreCodeVO;
